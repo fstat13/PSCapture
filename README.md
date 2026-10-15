@@ -41,6 +41,9 @@ No capture card. No Remote Play. No cloud. Just your console and your network.<b
 
 📖 The illustrated guide lives in [`docs/index.html`](docs/index.html)
 (open it in a browser, or enable GitHub Pages on `/docs`).
+🔧 Curious about what happens under the hood when you press Start? See
+[`docs/INSTALLER.md`](docs/INSTALLER.md) — the exact four steps the app runs,
+down to registry keys and console paths.
 
 ## 📦 Repository layout
 
