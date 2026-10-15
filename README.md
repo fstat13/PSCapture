@@ -83,7 +83,7 @@ payload/    PS5 side: display-engine reader + NV12 streamer (pscapture.elf)
 pc/         PSCapture.exe — GUI + installer + payload deployer + feeder
 pc/ps5cam.c the virtual capture-card driver (DirectShow source filter)
 pc/shm.h    shared-memory contract between feeder and driver
-docs/       guides: HTML, fool-proof step-by-step, build, installer, RE, log
+docs/       guides: HTML, step-by-step, build, installer, RE, log
 ```
 
 ## 🔧 Build

@@ -1,4 +1,4 @@
-# PSCapture — la guida a prova di scemo
+# PSCapture — la guida passo-passo completa
 
 Da zero alla tua PS5 dentro Discord. Ogni passo dice esattamente cosa devi
 vedere sullo schermo. Se qualcosa non torna, salta alla tabella dei problemi
@@ -47,7 +47,7 @@ per Windows sono dentro di lui.
    | `driver gia' installato` | la camera è già registrata — ok |
    | `driver estratto dall'eseguibile (… byte)` + `driver registrato - la webcam 'PS5 Capture' e' pronta` | primo avvio: driver installato |
    | `payload dall'eseguibile (… byte)` + `payload avviato - la PS5 deve mostrare la notifica PSCapture` | il payload sta girando sulla console |
-   | `porta stream: 9xxx` poi `collegato a 192.168.0.36:9xxx` | stream connesso |
+   | `porta stream: 5599` poi `collegato a 192.168.0.36:5599` | stream connesso |
    | la pillola diventa **verde**: `STREAMING - scegli 'PS5 Capture' in Discord` | sei live |
 
 5. Sulla PS5 compare la notifica di sistema: **PSCapture is streaming on:PORT**.
@@ -74,7 +74,7 @@ Qui va alla piena risoluzione **1920x1080**.
   payload è già sulla console (autoloader) lo stream parte subito; se la
   console è spenta la pillola dice *"IN ATTESA DELLA PS5"* e si connette nel
   momento in cui la console è pronta.
-- Premi **Stop** (o chiudi l'app) per fermare lo stream. La camera si congela
+- Premi **STOP** (o chiudi l'app) per fermare lo stream. La camera si congela
   sull'ultimo frame; gli altri programmi continuano a vedere il dispositivo.
 - **Deploy payload** rimanda il payload a mano (utile dopo un riavvio della
   console senza autoloader). **Install driver** riregistra la camera a mano
@@ -98,7 +98,7 @@ Entrambe si applicano in diretta (circa un secondo) e sono salvate in
 | Il log ripete `PS5 non raggiungibile (...), riprovo` | come sopra | come sopra |
 | La camera `PS5 Capture` non appare in Discord/OBS | driver mai registrato (install fallito) | premi **Install driver**; leggi la riga di log che segue — ora riporta l'errore *vero* |
 | Log: `ERRORE: driver non scrivibile in C:\Program Files\PSCapture (serve admin?)` | app non elevata | chiudi e riavvia `PSCapture.exe` accettando il prompt UAC |
-| Log: `ERRORE caricando la dll (err=126)` | l'antivirus ha messo in quarantena la dll estratta | controlla la quarantena dell'antivirus per `pscapture.dll`, sbloccala, premi di nuovo **Install driver** |
+| Log: `ERRORE caricamento dll (err=126)` | l'antivirus ha messo in quarantena la dll estratta | controlla la quarantena dell'antivirus per `pscapture.dll`, sbloccala, premi di nuovo **Install driver** |
 | La camera appare ma l'immagine è nera | stream non partito | controlla la pillola; premi **Deploy payload** e/o **START STREAMING** |
 | I colori sembrano sbagliati (pelle rossastra, cielo arancione) | qualcuno ha toccato `gain` | rimetti `gain` a `1.0` → Apply |
 | Immagine decentrata / barra nera | allineamento | regola `shift px` con numeri pari finché non è centrata |

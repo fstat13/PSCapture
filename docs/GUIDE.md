@@ -1,4 +1,4 @@
-# PSCapture — the fool-proof guide
+# PSCapture — the complete step-by-step guide
 
 🇮🇹 Versione italiana: [GUIDE.it.md](GUIDE.it.md)
 
@@ -46,7 +46,7 @@ the Windows capture-card driver are inside it.
    | `driver gia' installato` | camera already registered — fine |
    | `driver estratto dall'eseguibile (… byte)` + `driver registrato - la webcam 'PS5 Capture' e' pronta` | first run: driver installed |
    | `payload dall'eseguibile (… byte)` + `payload avviato - la PS5 deve mostrare la notifica PSCapture` | the payload is now running on the console |
-   | `porta stream: 9xxx` then `collegato a 192.168.0.36:9xxx` | stream connected |
+   | `porta stream: 5599` then `collegato a 192.168.0.36:5599` | stream connected |
    | status pill turns **green**: `STREAMING - scegli 'PS5 Capture' in Discord` | you're live |
 
 5. The PS5 shows a system notification: **PSCapture is streaming on:PORT**.
@@ -72,7 +72,7 @@ This runs at the full **1920x1080**.
   itself: if the payload is already on the console (autoloader) the stream
   starts by itself; if the console is off the pill says
   *"IN ATTESA DELLA PS5"* and connects the moment the console is ready.
-- Press **Stop** (or close the app) to stop streaming. The camera goes black /
+- Press **STOP** (or close the app) to stop streaming. The camera goes black /
   freezes on the last frame; consumers keep the device listed.
 - **Deploy payload** re-sends the payload by hand (useful after a console
   reboot without autoloader). **Install driver** re-registers the camera by
@@ -96,7 +96,7 @@ exe, so they survive restarts.
 | Log repeats `PS5 non raggiungibile (...)`, riprova | same as above | same |
 | No `PS5 Capture` camera appears in Discord/OBS | driver never registered (install failed) | press **Install driver**; read the log line after it — it now reports the *real* error |
 | Log: `ERRORE: driver non scrivibile in C:\Program Files\PSCapture (serve admin?)` | app not elevated | close it, restart `PSCapture.exe` and accept the UAC prompt |
-| Log: `ERRORE caricando la dll (err=126)` | antivirus quarantined the extracted dll | check the antivirus quarantine for `pscapture.dll`, allow it, press **Install driver** again |
+| Log: `ERRORE caricamento dll (err=126)` | antivirus quarantined the extracted dll | check the antivirus quarantine for `pscapture.dll`, allow it, press **Install driver** again |
 | Camera listed but the image is black | stream not running | check the pill; press **Deploy payload** and/or **START STREAMING** |
 | Colors look wrong (skin reddish, sky orange) | `gain` was changed | set `gain` back to `1.0` → Apply |
 | Image has a black bar / is off-center | alignment | tune `shift px` (even values) until centered |
