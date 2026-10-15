@@ -1,0 +1,28 @@
+PSCapture — Source-Available License
+Copyright (c) 2026 fstat13. All rights reserved.
+
+PSCapture ("the Software") includes the console payload (payload/), the PC
+application (pc/pscapture.c), the virtual capture driver (pc/pscapture.dll and
+its sources) and all documentation in this repository.
+
+PERMITTED
+  1. You may read, study and privately modify the Software for your OWN
+     personal, non-commercial use on hardware you own.
+  2. You may use official unmodified release binaries for personal,
+     non-commercial purposes.
+
+NOT PERMITTED (without prior written permission from the author)
+  1. Redistribution, publishing or mirroring of the Software or modified
+     versions, in source or binary form.
+  2. Reuse of the Software (in whole or in substantial part) in other
+     projects, products or forks.
+  3. Commercial use of any kind.
+  4. Removing or altering author credits, this license, or the product
+     "PSCapture" branding.
+
+No warranty: the Software is provided "as is", without warranty of any kind.
+Running payloads on a console can damage or brick it — you do so entirely at
+your own risk. The author is not liable for any damage, data loss or account
+consequences.
+
+For permissions beyond this license, contact the author (fstat13).

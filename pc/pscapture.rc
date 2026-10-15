@@ -1,0 +1,3 @@
+#include <windows.h>
+1 ICON "pscapture.ico"
+2 RCDATA "pscapture.elf"

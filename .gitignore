@@ -1,0 +1,12 @@
+# build outputs
+*.elf
+*.exe
+*.res
+*.dll
+*.o
+*.a
+*.obj
+pscapture_trace.txt
+# ambienti
+_sequenza_esiti/
+_BOZZE/

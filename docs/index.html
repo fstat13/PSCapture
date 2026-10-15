@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSCapture by fstat13 — PS5 screen as a capture card on PC</title>
+<style>
+  :root{
+    --bg:#0d1015; --card:#151a22; --card2:#1b222d; --line:#242c38;
+    --fg:#e8edf4; --dim:#96a0b0; --accent:#0070d1; --accent2:#35a3ff;
+    --rec:#e22236; --ok:#1fbf6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:16px/1.65 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px}
+  header{background:
+     radial-gradient(900px 320px at 20% -40%, rgba(0,112,209,.35), transparent 60%),
+     radial-gradient(700px 300px at 90% -30%, rgba(226,34,54,.22), transparent 60%),
+     var(--bg);
+     border-bottom:1px solid var(--line);padding:56px 0 40px}
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand img{width:84px;height:84px;border-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  h1{font-size:44px;margin:0;letter-spacing:.5px}
+  .tag{color:var(--dim);font-size:18px;margin-top:6px}
+  .badges{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}
+  .badge{border:1px solid var(--line);background:var(--card);
+    padding:5px 12px;border-radius:999px;font-size:13px;color:var(--dim)}
+  .badge b{color:var(--fg)}
+  h2{margin:52px 0 14px;font-size:26px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .card p{margin:0;color:var(--dim);font-size:14.5px}
+  .flow{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin-top:16px}
+  .box{flex:1;min-width:180px;background:var(--card2);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px}
+  .box b{display:block;margin-bottom:6px}
+  .box div{color:var(--dim);font-size:13.5px}
+  .arrow{align-self:center;color:var(--accent2);font-size:22px;padding:0 2px}
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:18px 0 0}
+  ol.steps li{counter-increment:s;position:relative;padding:0 0 18px 54px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;
+    width:34px;height:34px;border-radius:10px;background:var(--accent);
+    color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center}
+  ol.steps b{color:var(--fg)}
+  ol.steps span{color:var(--dim)}
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:500}
+  code,kbd{background:#0a0d12;border:1px solid var(--line);border-radius:6px;
+    padding:1px 7px;font:13.5px/1.5 Consolas,monospace;color:#cfe3ff}
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;margin:10px 0}
+  summary{cursor:pointer;font-weight:600}
+  details p{color:var(--dim);margin:10px 0 0}
+  .note{background:linear-gradient(0deg,rgba(0,112,209,.08),rgba(0,112,209,.08)),
+    var(--card);border:1px solid #23405f;border-radius:12px;padding:14px 18px;color:#cfe3ff}
+  footer{color:var(--dim);border-top:1px solid var(--line);margin-top:70px;
+    padding:26px 0 40px;font-size:13.5px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+    background:var(--rec);margin-right:8px;vertical-align:1px}
+  .ok{color:var(--ok);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <img src="pscapture.png" alt="PSCapture">
+      <div>
+        <h1>PSCapture</h1>
+        <div class="tag">The PlayStation&nbsp;5 screen, live on your PC — as a real capture card.</div>
+      </div>
+    </div>
+    <div class="badges">
+      <span class="badge"><b>PS5</b> jailbroken</span>
+      <span class="badge"><b>Windows</b> 10 / 11</span>
+      <span class="badge"><span class="dot"></span><b>No</b> capture card</span>
+      <span class="badge"><b>No</b> Remote&nbsp;Play</span>
+      <span class="badge">1080p &middot; ~30 fps</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>What it is</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>🎥 Virtual capture card</h3>
+      <p>PSCapture registers a DirectShow device named <b>PS5 Capture</b>.
+         Discord, OBS and ffmpeg see it like an Elgato — pick it and go live.</p>
+    </div>
+    <div class="card">
+      <h3>⚡ Straight from the GPU</h3>
+      <p>The console payload reads the display engine's scan-out buffer directly
+         and streams NV12 frames over your LAN. No re-encode delay, no cloud.</p>
+    </div>
+    <div class="card">
+      <h3>🖱️ One executable</h3>
+      <p><b>PSCapture.exe</b> carries the console payload inside itself:
+         install the driver, push the payload, start streaming — one window,
+         one click.</p>
+    </div>
+  </div>
+
+  <h2>How it works</h2>
+  <div class="flow">
+    <div class="box"><b>PS5 &middot; payload</b>
+      <div>reads the DCE scan-out ring, builds NV12 frames, serves them on a TCP
+           port, pops a toast: <i>“PSCapture is streaming on:PORT”</i>.</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>PC &middot; feeder</b>
+      <div>receives frames and publishes them into a shared-memory ring.</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>PC &middot; driver</b>
+      <div>DirectShow filter exposes the ring as a camera every app can use.</div></div>
+  </div>
+
+  <h2>Quick start</h2>
+  <ol class="steps">
+    <li><b>Jailbreak your PS5</b><br>
+      <span>Any kernel-capable jailbreak that gives you payloads
+      (<code>elfldr</code> on port 9021, anonymous FTP on 2121 and the
+      <code>pldmgr</code> autoloader).</span></li>
+    <li><b>Run <code>PSCapture.exe</code></b><br>
+      <span>Windows asks for administrator once. Type the PS5 IP address if it
+      is not the default <code>192.168.0.36</code>.</span></li>
+    <li><b>Press <i>Start</i></b><br>
+      <span>The app installs the virtual capture driver (first run), sends the
+      payload to the console, registers it in the autoloader and starts the
+      stream. The PS5 shows the streaming notification.</span></li>
+    <li><b>Discord / OBS / anything</b><br>
+      <span>Choose the camera <b>PS5 Capture</b>. Done — that is your PS5 on
+      the other side.</span></li>
+  </ol>
+
+  <div class="note" style="margin-top:22px">
+    <b>Tuning:</b> the <code>gain</code> field adjusts chroma intensity and
+    <code>shift&nbsp;px</code> fine-aligns the image horizontally (both live,
+    saved in <code>pscapture.ini</code> next to the exe).
+  </div>
+
+  <h2>Requirements</h2>
+  <table>
+    <tr><th>Where</th><th>What</th></tr>
+    <tr><td>PS5</td><td>Jailbroken (payload loader + FTP + pldmgr autoloader)</td></tr>
+    <tr><td>PS5</td><td>Latest tested firmware: <b>13.60</b> — see the FAQ for other versions</td></tr>
+    <tr><td>PC</td><td>Windows 10/11 64-bit, wired network recommended</td></tr>
+    <tr><td>Network</td><td>Both on the same LAN (gigabit is plenty for 1080p30)</td></tr>
+  </table>
+
+  <h2>FAQ</h2>
+
+  <details>
+    <summary>Does it work on firmware versions older than 13.60?</summary>
+    <p>The PC side works on every firmware: the app and the driver only speak
+       TCP/FTP and shared memory. The console payload is the version-specific
+       part — it was built and tuned on <b>13.60</b>, using display-engine
+       anchors found on that firmware. On other firmwares it may need a small
+       porting pass (the fix is finding the same anchors on that system).
+       If you have another firmware, open an issue with your version and we
+       can add a profile.</p>
+  </details>
+
+  <details>
+    <summary>Why is the call camera 720p and not 1080p?</summary>
+    <p>That cap is Discord's voice engine, not PSCapture: it requests 1280x720
+       from every camera. For full-quality capture use OBS (where PS5 Capture
+       runs at 1920x1080) or Discord's screen-share, which goes up to
+       1080p60 with Nitro.</p>
+  </details>
+
+  <details>
+    <summary>Is a capture card or Remote Play needed?</summary>
+    <p>No. PSCapture never touches Remote Play: the payload reads the display
+       engine on the console itself and streams raw frames over your LAN.</p>
+  </details>
+
+  <details>
+    <summary>The camera lists but stays black / spinner</summary>
+    <p>Open the app: the status line shows what is happening — not reachable
+       IP, payload not running, or feeder reconnecting. Everything is logged
+       in the window; the console side logs to <code>/data/pscapture.log</code>
+       over FTP.</p>
+  </details>
+
+  <footer>
+    PSCapture — bring your PS5 screen anywhere on your LAN, no card, no cloud.
+    <br><b>by fstat13</b> &middot; source-available. Built for the homebrew community. <span class="ok">Play responsibly.</span>
+  </footer>
+</div>
+
+</body>
+</html>
