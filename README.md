@@ -32,6 +32,13 @@ No capture card. No Remote Play. No cloud. Just your console and your network.<b
 <b><a href="https://fstat13.github.io/PSCapture/index.it.html">Italiano</a></b>
 </p>
 
+<p align="center">
+  <a href="https://github.com/fstat13/PSCapture/releases"><img src="https://img.shields.io/github/v/release/fstat13/PSCapture?style=flat-square&color=0070d1&label=release" alt="Release"></a>
+  <a href="https://github.com/fstat13/PSCapture/stargazers"><img src="https://img.shields.io/github/stars/fstat13/PSCapture?style=flat-square&color=0070d1" alt="Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-source--available-35a3ff?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0070d1?style=flat-square" alt="Platform">
+</p>
+
 ---
 
 ## ✨ What you get
