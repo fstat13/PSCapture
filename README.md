@@ -88,6 +88,18 @@ That's Discord's voice engine — it requests 1280x720 from every camera
 **Remote Play involved?**
 Never. The payload reads the display engine on the console itself.
 
+## 🔬 Reverse engineering
+
+The whole story of how the console's display engine was mapped — the scan-out
+ring, the pan, the chroma plane, the kernel-side notes and the delivery format
+for kernel payloads — lives in
+[`docs/REVERSE_ENGINEERING.md`](docs/REVERSE_ENGINEERING.md).
+The bench used to get there is in [`tools/`](tools/): the library dumper
+payload, the disassembly hunters, the deterministic frame renderers.
+
+> No Sony binaries are distributed with this project: `tools/dumplib/` extracts
+> what you need **from your own console** to reproduce every finding.
+
 ## 📄 License
 
 **Source-available**, copyright © 2026 **fstat13**. You may read and study the
