@@ -76,6 +76,20 @@ IP — the app retries by itself every 2 seconds.
 🔧 What the app does under the hood when you press Start:
 [`docs/INSTALLER.md`](docs/INSTALLER.md).
 
+## 🔒 Verify the download
+
+The release binaries are built from this repository's sources. Every release
+carries a `SHA256SUMS.txt` — check it before running the exe:
+
+```
+certutil -hashfile pscapture.exe SHA256     (Windows)
+sha256sum -c SHA256SUMS.txt                 (Linux/macOS)
+```
+
+And you never have to trust any binary: the whole toolchain is documented in
+[`docs/BUILD.md`](docs/BUILD.md) — rebuild `pscapture.exe` from the sources
+yourself and compare.
+
 ## 📦 Repository layout
 
 ```

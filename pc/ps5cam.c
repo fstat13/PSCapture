@@ -2545,11 +2545,22 @@ __declspec(dllexport) HRESULT WINAPI
 DllRegisterServer(void)
 {
   WCHAR dll[MAX_PATH];
+  WCHAR p[512];
+  WCHAR guid[64];
+  HKEY k;
 
   if(!GetModuleFileNameW(g_hinst_ps5cam, dll, MAX_PATH)) return E_FAIL;
   registra(HKEY_CURRENT_USER, dll);          /* niente admin */
   registra(HKEY_LOCAL_MACHINE, dll);         /* se siamo admin, meglio */
-  return S_OK;
+  /* il risultato si verifica davvero: se almeno la chiave per-utente e'
+   * leggibile la registrazione e' utilizzabile (HKCR unisce HKCU+HKLM) */
+  StringFromGUID2(&CLSID_Ps5Cam, guid, 64);
+  wsprintfW(p, L"Software\\Classes\\CLSID\\%s\\InprocServer32", guid);
+  if(RegOpenKeyExW(HKEY_CURRENT_USER, p, 0, KEY_READ, &k) == ERROR_SUCCESS) {
+    RegCloseKey(k);
+    return S_OK;
+  }
+  return E_FAIL;
 }
 
 __declspec(dllexport) HRESULT WINAPI

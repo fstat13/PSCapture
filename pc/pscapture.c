@@ -243,6 +243,22 @@ ftp_cmd(int c, const char *cmd, char *risp, int sz)
   return buf[0] == '2' || buf[0] == '3' || buf[0] == '1' ? 0 : -1;
 }
 
+/* invio completo: TCP non garantisce che una singola send() trasferisca
+ * tutti i byte richiesti */
+static int
+send_all(int s, const char *d, int len)
+{
+  int off = 0;
+
+  while(off < len) {
+    int n = send((SOCKET)s, d + off, len - off, 0);
+
+    if(n <= 0) return -1;
+    off += n;
+  }
+  return 0;
+}
+
 static int
 ftp_leggi_file(const char *ip, const char *file, char *out, int outsz)
 {
@@ -251,7 +267,8 @@ ftp_leggi_file(const char *ip, const char *file, char *out, int outsz)
   int n;
 
   if(c < 0) return -1;
-  ftp_cmd(c, "PASV\r\n", buf, sizeof(buf));
+  memset(buf, 0, sizeof(buf));
+  if(ftp_cmd(c, "PASV\r\n", buf, sizeof(buf))) goto ko;
   {
     char *p = strchr(buf, '(');
     unsigned h1, h2, h3, h4, p1, p2;
@@ -292,7 +309,8 @@ ftp_manda_file(const char *ip, const char *remoto, const unsigned char *d,
   char buf[4096];
 
   if(c < 0) return -1;
-  ftp_cmd(c, "PASV\r\n", buf, sizeof(buf));
+  memset(buf, 0, sizeof(buf));
+  if(ftp_cmd(c, "PASV\r\n", buf, sizeof(buf))) goto ko;
   {
     char *p = strchr(buf, '(');
     unsigned h1, h2, h3, h4, p1, p2;
@@ -310,7 +328,7 @@ ftp_manda_file(const char *ip, const char *remoto, const unsigned char *d,
     if(recv((SOCKET)c, buf, sizeof(buf) - 1, 0) <= 0 || buf[0] != '1')
       goto ko;
   }
-  if(send((SOCKET)ds, (const char *)d, len, 0) != len) goto ko;
+  if(send_all(ds, (const char *)d, len)) goto ko;
   closesocket((SOCKET)ds);
   ds = -1;
   recv((SOCKET)c, buf, sizeof(buf) - 1, 0);
@@ -575,7 +593,12 @@ lavoro_deploy(LPVOID p)
     free(elf);
     return 1;
   }
-  send((SOCKET)s, (const char *)elf, len, 0);
+  if(send_all(s, (const char *)elf, len)) {
+    logUI("ERRORE: invio payload all'elfldr incompleto");
+    closesocket((SOCKET)s);
+    free(elf);
+    return 1;
+  }
   /* 3) leggi lo stream di log per qualche secondo */
   {
     DWORD t0 = GetTickCount();
