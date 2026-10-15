@@ -31,49 +31,68 @@ No capture card. No Remote Play. No cloud. Just your console and your network.<b
 
 ## 🚀 Quick start
 
-1. **Jailbreak your PS5** (payload loader on `:9021`, anonymous FTP on `:2121`,
-   `pldmgr` autoloader — all standard in today's setups).
-2. **Run `PSCapture.exe`** (admin is requested automatically; set your PS5 IP
-   if it isn't the default).
-3. **Press Start.** The app does the rest. The console pops a notification:
-   `PSCapture is streaming on:PORT`
-4. In Discord/OBS pick the camera **PS5 Capture**.
+1. **Jailbreak your PS5** — you need the standard setup: a payload loader on
+   TCP `9021` (`elfldr`-style), anonymous FTP on TCP `2121`, and optionally
+   `pldmgr` so the payload starts on every boot.
+2. **Double-click `PSCapture.exe`** (one file — the console payload and the
+   Windows driver travel inside it). Accept the UAC prompt. If your PS5 isn't
+   at `192.168.0.36`, type its IP in the *PS5 IP* field and press *Apply*.
+3. **Watch the log pane** — the app installs the capture driver (first run
+   only), sends the payload to the console and connects by itself. The status
+   pill turns green: `STREAMING`. The console shows the system toast
+   **PSCapture is streaming on:PORT**.
+4. In Discord (*Settings → Voice & Video → Camera*) or OBS pick the camera
+   **PS5 Capture**.
 
-📖 The illustrated guide lives in [`docs/index.html`](docs/index.html)
-(open it in a browser, or enable GitHub Pages on `/docs`).
-🔧 Curious about what happens under the hood when you press Start? See
-[`docs/INSTALLER.md`](docs/INSTALLER.md) — the exact four steps the app runs,
-down to registry keys and console paths.
+Stuck on *“IN ATTESA DELLA PS5”*? Console off, not jailbroken yet, or wrong
+IP — the app retries by itself every 2 seconds.
+
+📖 Step-by-step with every log line explained: [`docs/GUIDE.md`](docs/GUIDE.md)
+— or the [illustrated HTML guide](docs/index.html).
+🔧 What the app does under the hood when you press Start:
+[`docs/INSTALLER.md`](docs/INSTALLER.md).
 
 ## 📦 Repository layout
 
 ```
-payload/    PS5 side: display-engine reader + NV12 streamer (ps5capture.elf)
-pc/         PSCapture.exe  — GUI + installer + payload deployer + feeder
+payload/    PS5 side: display-engine reader + NV12 streamer (pscapture.elf)
+pc/         PSCapture.exe — GUI + installer + payload deployer + feeder
+pc/ps5cam.c the virtual capture-card driver (DirectShow source filter)
 pc/shm.h    shared-memory contract between feeder and driver
-pc/*.dll    the virtual capture-card driver (DirectShow source filter)
-docs/       HTML guide (dark theme, ready for GitHub Pages)
+docs/       guides: HTML, fool-proof step-by-step, build, installer, RE, log
 ```
 
 ## 🔧 Build
 
-**Console payload** (needs the PS5 payload SDK; any Linux/docker with it):
+Full walk-through (toolchain install, verification, gotchas):
+**[`docs/BUILD.md`](docs/BUILD.md)**. The short version, in the **mandatory
+order** (the `.res` embeds the driver and the payload as they are on disk):
+
+**Console payload** → `payload/pscapture.elf` (needs Docker + the PS5 payload
+SDK image; any tag works, here `ps5sdk:18`):
 
 ```bash
-docker run --rm -v "$PWD/payload:/payload" -w /payload <ps5-payload-sdk-image> make
+docker run --rm -v "$PWD/payload:/payload" -w /payload ps5sdk:18 make
 ```
 
-**Driver + single-file app** (mingw-w64, no dependencies — build order matters,
-the `.res` embeds the driver and the payload):
+**PC side** → `pscapture.exe` + `pscapture.dll` (needs MinGW-w64 with `gcc` +
+`windres`):
 
 ```bash
-# 1) the capture-card driver
-gcc -O2 -shared -o pc/pscapture.dll pc/ps5cam.c -lole32 -loleaut32 -luser32 -ladvapi32 -lws2_32
+cd pc
+cp ../payload/pscapture.elf .   # gets embedded as-is
+# 1) the capture-card driver (-static is mandatory, see BUILD.md)
+gcc -O2 -shared -static -static-libgcc -o pscapture.dll ps5cam.c \
+    -lole32 -loleaut32 -luser32 -ladvapi32 -lws2_32
 # 2) resources = icon + payload + driver
-windres pc/pscapture.rc -O coff -o pc/pscapture.res
+windres pscapture.rc -O coff -o pscapture.res
 # 3) the app (one self-contained executable)
-gcc -O2 -mwindows -o pc/pscapture.exe pc/pscapture.c pc/pscapture.res -lws2_32 -lshell32 -ladvapi32
+gcc -O2 -mwindows -o pscapture.exe pscapture.c pscapture.res \
+    -lws2_32 -lshell32 -ladvapi32 -luxtheme
 ```
+
+Rebuild rule: **DLL → windres → exe, every time** — rebuilding only the exe
+ships the old driver inside it.
 
 ## ❓ FAQ
 
