@@ -166,6 +166,27 @@ share is possible up to 1080p60 with Nitro.
 
 ---
 
+### B6. The installer crash-course: a cryptic module error and a lying log
+**Symptom.** Pressing *Install driver* showed *"the specified module could not
+be found"* - the classic rundll32 message, with no other clue anywhere.
+**Diagnosis.** Two faults stacked: when the app was not elevated, writing
+`pscapture.dll` into `%ProgramFiles%` failed silently - the old code logged
+the extraction as successful anyway - and then `rundll32` was asked to load a
+file that did not exist (hence the generic, useless message). On top of that,
+`rundll32` never reports what went wrong back to the caller.
+**Fix.** Every filesystem step is now verified (write -> check size ->
+report), the install aborts honestly when the dll cannot be placed, and
+registration happens in-process (`LoadLibrary` + `DllRegisterServer`) so
+failures come back as real HRESULTs. The driver check also verifies that the
+registered dll still *exists* on disk before declaring victory.
+
+### B7. The modern control center UI
+The first GUI iteration was a plain Win32 dialog. It was rebuilt as a dark
+custom-chrome window: painted title bar with integrated minimize/close,
+rounded window region, owner-drawn buttons, a live status pill with a state
+dot, and a dark monospace console pane. Everything is still pure C with zero
+frameworks - the UI is drawn by hand.
+
 ## Part C — The road to 60 fps
 
 **The math.** Raw NV12 1080p is 3.11 MB/frame → 30 fps ≈ 93 MB/s (a gigabit
@@ -206,3 +227,7 @@ arguments, so a bad call must die alone).
    child process with a timeout.
 7. When a suspicious "fix" targets a symptom (the chroma gain), keep looking
    for the *identity* of the problem (the U/V swap).
+
+8. **Never log success without checking the I/O result.** A lying log (the
+   installer claiming "extracted ok" on a failed write) costs far more time
+   than a missing one - it sends you hunting in the wrong place.

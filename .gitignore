@@ -10,3 +10,7 @@ pscapture_trace.txt
 # ambienti
 _sequenza_esiti/
 _BOZZE/
+
+# runtime
+ps5capture-app.log
+pscapture.ini

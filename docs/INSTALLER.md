@@ -35,20 +35,18 @@ the driver is considered installed and this step is skipped.
    embedded inside the executable, resource `RCDATA` n.3) and writes it
    there. It also copies itself, so the installed folder is self-contained
    — the distributed installer is literally **one file**.
-3. Registers the filter by running:
+3. Registers the filter by loading the dll into the app itself and calling
+   `DllRegisterServer` directly. *(Earlier builds shelled out to `rundll32`,
+   which turned a missing dll into a cryptic "the specified module could not
+   be found" dialog; the in-process call returns real error codes.)* Every
+   step is checked: if the dll could not be written (not elevated, no
+   rights), the app says so instead of attempting a doomed registration.
 
-   ```
-   rundll32.exe "%ProgramFiles%\PSCapture\pscapture.dll",DllRegisterServer
-   ```
-
-   `DllRegisterServer` writes the COM registration for the filter CLSID,
+   DllRegisterServer writes the COM registration for the filter CLSID,
    including the **DevicePath** entry that modern capture consumers
    (Chromium/Discord media engine among them) use to pick the device.
-   `DllUnregisterServer` removes it — that is the uninstall path today
+   DllUnregisterServer removes it - that is the uninstall path today
    (delete the folder + call it).
-
-After this step the system has a camera called **PS5 Capture**. It will show
-a black frame until a stream arrives — the feeder is what fills it.
 
 ## Step 3 — Deploying the console payload
 

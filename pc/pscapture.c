@@ -19,10 +19,12 @@
 #include <ws2tcpip.h>
 #include <shellapi.h>
 #include <windows.h>
+#include <uxtheme.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "shm.h"
 
@@ -38,9 +40,28 @@ static DWORD WINAPI lavoro_deploy(LPVOID p);
 static volatile long g_streaming;
 static HANDLE g_thread;
 static char g_dir[MAX_PATH];
-static HFONT g_font, g_font_b, g_font_t;
-static HWND g_h_sub;
-static int g_stato_on;
+static HFONT g_font, g_font_b, g_font_t, g_font_s, g_font_log;
+static HBRUSH g_br_bg, g_br_edit, g_br_pill;
+static char g_stato_text[96] = "IDLE";
+static int g_stato_level;   /* 0 idle, 1 attesa, 2 streaming */
+
+/* palette scura */
+#define CL_BG RGB(16, 20, 27)
+#define CL_TBAR RGB(11, 14, 19)
+#define CL_EDIT RGB(12, 15, 21)
+#define CL_LINE RGB(32, 39, 51)
+#define CL_TXT RGB(232, 237, 244)
+#define CL_DIM RGB(152, 162, 179)
+#define CL_ACC RGB(41, 134, 235)
+#define CL_ACC_D RGB(28, 100, 180)
+#define CL_GHOST RGB(26, 32, 41)
+#define CL_GHOST_D RGB(38, 46, 59)
+#define CL_GBD RGB(44, 54, 70)
+#define CL_GREEN RGB(34, 197, 94)
+#define CL_AMBER RGB(245, 158, 11)
+#define CL_DIM2 RGB(120, 130, 145)
+#define CL_PILL RGB(26, 33, 48)
+#define CL_EDTX RGB(203, 211, 224)
 
 static BOOL CALLBACK
 set_font_cb(HWND c, LPARAM f)
@@ -97,12 +118,45 @@ logUI(const char *fmt, ...)
   va_start(ap, fmt);
   vsnprintf(b, sizeof(b), fmt, ap);
   va_end(ap);
+  {
+    char p[MAX_PATH];
+    FILE *f;
+
+    snprintf(p, sizeof(p), "%s\\pscapture-app.log", g_dir);
+    f = fopen(p, "a");
+    if(!f) {
+      char t[MAX_PATH];
+      int e = errno;
+      DWORD n = GetTempPathA(sizeof(t), t);
+
+      if(n > 0 && n < sizeof(t)) {
+        snprintf(p, sizeof(p), "%sps5capture-app.log", t);
+        f = fopen(p, "a");
+      }
+      if(f) {
+        char nota[300];
+
+        snprintf(nota, sizeof(nota),
+                 "log accanto all'exe non scrivibile (errno=%d), uso: %s", e, p);
+        fprintf(f, "%s\n", nota);
+      }
+    }
+    if(f) {
+      SYSTEMTIME st;
+
+      GetLocalTime(&st);
+      fprintf(f, "[%02d:%02d:%02d] %s\n", st.wHour, st.wMinute,
+              st.wSecond, b);
+      fclose(f);
+    }
+  }
   if(g_hwnd) PostMessageA(g_hwnd, WM_APP_LOG, 0, (LPARAM)_strdup(b));
 }
 
 static void
 statoUI(const char *s)
 {
+  if(!strcmp(s, g_stato_text)) return;
   if(g_hwnd) PostMessageA(g_hwnd, WM_APP_STATO, 0, (LPARAM)_strdup(s));
 }
 
@@ -373,6 +427,7 @@ feeder(LPVOID p)
       s = connetti(g_ip, port, 8000);
       if(s < 0) {
         logUI("PS5 non raggiungibile (%s), riprovo", g_ip);
+        statoUI("IN ATTESA DELLA PS5 - accesa e col jailbreak avviato?");
         Sleep(2000);
         port = -1;
         continue;
@@ -539,7 +594,7 @@ lavoro_deploy(LPVOID p)
   }
   closesocket((SOCKET)s);
   free(elf);
-  logUI("payload avviato — la PS5 deve mostrare la notifica PSCapture");
+  logUI("payload avviato - la PS5 deve mostrare la notifica PSCapture");
   return 0;
 }
 
@@ -547,9 +602,6 @@ static DWORD WINAPI
 lavoro_installa(LPVOID p)
 {
   char dst[MAX_PATH], src[MAX_PATH], cmd[MAX_PATH * 2];
-  STARTUPINFOA si;
-  PROCESS_INFORMATION pi;
-  char win[MAX_PATH];
 
   (void)p;
   {
@@ -563,10 +615,11 @@ lavoro_installa(LPVOID p)
 
   /* il driver viaggia DENTRO l'eseguibile (risorsa RCDATA n.3): lo si
    * estrae e lo si scrive in Program Files; fallback: copia dal disco */
+  snprintf(cmd, sizeof(cmd), "%s\\pscapture.dll", dst);
   {
     HRSRC r = FindResourceA(NULL, MAKEINTRESOURCEA(3), RT_RCDATA);
+    int scritto = 0;
 
-    snprintf(cmd, sizeof(cmd), "%s\\pscapture.dll", dst);
     if(r) {
       HGLOBAL g = LoadResource(NULL, r);
       DWORD n = SizeofResource(NULL, r);
@@ -578,10 +631,14 @@ lavoro_installa(LPVOID p)
         DWORD wr = 0;
 
         if(h != INVALID_HANDLE_VALUE) {
-          WriteFile(h, sd, n, &wr, NULL);
+          if(WriteFile(h, sd, n, &wr, NULL) && wr == n) scritto = 1;
           CloseHandle(h);
         }
-        logUI("driver estratto dall'eseguibile (%u byte)", (unsigned)n);
+        if(scritto) {
+          logUI("driver estratto dall'eseguibile (%u byte)", (unsigned)n);
+        } else {
+          logUI("ERRORE: driver non scrivibile in %s (serve admin?)", dst);
+        }
       }
     } else {
       const char *dlls[] = { "pscapture.dll", "ps5cam.dll", NULL };
@@ -589,8 +646,9 @@ lavoro_installa(LPVOID p)
 
       for(i = 0; dlls[i]; i++) {
         snprintf(src, sizeof(src), "%s\\%s", g_dir, dlls[i]);
-        if(GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES) {
-          CopyFileA(src, cmd, FALSE);
+        if(GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES &&
+           CopyFileA(src, cmd, FALSE)) {
+          scritto = 1;
           logUI("driver copiato dal disco: %s", dlls[i]);
           break;
         }
@@ -601,23 +659,41 @@ lavoro_installa(LPVOID p)
 
       GetModuleFileNameA(NULL, self, sizeof(self));
       snprintf(cmd, sizeof(cmd), "%s\\pscapture.exe", dst);
-      CopyFileA(self, cmd, FALSE);
-      logUI("eseguibile installato (payload e driver inclusi)");
+      if(!CopyFileA(self, cmd, FALSE)) {
+        logUI("eseguibile gia' presente in %s", dst);
+      } else {
+        logUI("eseguibile installato (payload e driver inclusi)");
+      }
+      snprintf(cmd, sizeof(cmd), "%s\\pscapture.dll", dst);
     }
-  }
 
-  /* registra il filtro DirectShow */
-  snprintf(cmd, sizeof(cmd),
-           "rundll32.exe \"%s\\pscapture.dll\",DllRegisterServer", dst);
-  memset(&si, 0, sizeof(si));
-  si.cb = sizeof(si);
-  if(CreateProcessA(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-    WaitForSingleObject(pi.hProcess, 20000);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    logUI("driver registrato — la webcam 'PS5 Capture' e' pronta");
-  } else {
-    logUI("ERRORE registrazione driver (serve admin?)");
+    /* registra il filtro DirectShow (con codici errore veri, niente
+     * rundll32: se la dll non si carica lo diciamo e basta) */
+    if(GetFileAttributesA(cmd) != INVALID_FILE_ATTRIBUTES) {
+      HMODULE m = LoadLibraryExA(cmd, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+
+      if(m) {
+        typedef HRESULT (WINAPI *reg_t)(void);
+        reg_t fn = (reg_t)(void *)GetProcAddress(m, "DllRegisterServer");
+
+        if(fn) {
+          HRESULT hr = fn();
+
+          if(SUCCEEDED(hr)) {
+            logUI("driver registrato - la webcam 'PS5 Capture' e' pronta");
+          } else {
+            logUI("ERRORE registrazione driver (hr=0x%08lx)", (unsigned long)hr);
+          }
+        } else {
+          logUI("ERRORE: DllRegisterServer assente nella dll");
+        }
+        FreeLibrary(m);
+      } else {
+        logUI("ERRORE caricamento dll (err=%lu)", GetLastError());
+      }
+    } else {
+      logUI("registrazione saltata: dll assente in %s", dst);
+    }
   }
   return 0;
 }
@@ -678,7 +754,6 @@ WndProc(HWND h, UINT m, WPARAM w, LPARAM l)
   case WM_CREATE: {
     char b[64];
     HINSTANCE hi = g_inst;
-    HWND c;
 
     g_font = CreateFontA(-15, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
                          OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
@@ -686,59 +761,66 @@ WndProc(HWND h, UINT m, WPARAM w, LPARAM l)
     g_font_b = CreateFontA(-16, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET,
                            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                            DEFAULT_PITCH, "Segoe UI");
-    g_font_t = CreateFontA(-30, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET,
+    g_font_t = CreateFontA(-34, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET,
                            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                            DEFAULT_PITCH, "Segoe UI");
+    g_font_s = CreateFontA(-14, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
+                           OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                           DEFAULT_PITCH, "Segoe UI");
+    g_font_log = CreateFontA(-13, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
+                             OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                             FIXED_PITCH, "Consolas");
 
-    c = CreateWindowA("STATIC", "PSCapture", WS_CHILD | WS_VISIBLE,
-                      20, 14, 400, 42, h, 0, hi, 0);
-    SendMessageA(c, WM_SETFONT, (WPARAM)g_font_t, 1);
-    g_h_sub = CreateWindowA("STATIC", "PS5 screen to PC capture card  -  by fstat13  -  v0.1",
-                            WS_CHILD | WS_VISIBLE, 22, 58, 600, 20, h, 0, hi, 0);
+    g_br_bg = CreateSolidBrush(CL_BG);
+    g_br_edit = CreateSolidBrush(CL_EDIT);
+    g_br_pill = CreateSolidBrush(CL_PILL);
 
-    CreateWindowA("STATIC", "PS5 IP:", WS_CHILD | WS_VISIBLE,
-                  22, 98, 55, 22, h, 0, hi, 0);
-    g_h_ip = CreateWindowA("EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
-                           78, 96, 140, 24, h, (HMENU)ID_IP, hi, 0);
+    /* riga 1: indirizzo + azioni */
+    CreateWindowA("STATIC", "PS5 IP", WS_CHILD | WS_VISIBLE,
+                  26, 148, 50, 18, h, 0, hi, 0);
+    g_h_ip = CreateWindowA("EDIT", "", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+                           82, 142, 150, 30, h, (HMENU)ID_IP, hi, 0);
     ini_leggi("IP", "192.168.0.36", b, sizeof(b));
     SetWindowTextA(g_h_ip, b);
 
-    CreateWindowA("BUTTON", "Deploy payload", WS_CHILD | WS_VISIBLE,
-                  238, 95, 130, 26, h, (HMENU)ID_DEPLOY, hi, 0);
-    CreateWindowA("BUTTON", "Install driver", WS_CHILD | WS_VISIBLE,
-                  376, 95, 120, 26, h, (HMENU)ID_INSTALL, hi, 0);
-    c = CreateWindowA("BUTTON", "Start", WS_CHILD | WS_VISIBLE,
-                      504, 95, 92, 26, h, (HMENU)ID_START, hi, 0);
-    SendMessageA(c, WM_SETFONT, (WPARAM)g_font_b, 1);
-    c = CreateWindowA("BUTTON", "Stop", WS_CHILD | WS_VISIBLE,
-                      604, 95, 92, 26, h, (HMENU)ID_STOP, hi, 0);
-    SendMessageA(c, WM_SETFONT, (WPARAM)g_font_b, 1);
+    CreateWindowA("BUTTON", "", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                  250, 142, 132, 30, h, (HMENU)ID_DEPLOY, hi, 0);
+    CreateWindowA("BUTTON", "", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                  392, 142, 124, 30, h, (HMENU)ID_INSTALL, hi, 0);
 
-    CreateWindowA("STATIC", "gain:", WS_CHILD | WS_VISIBLE,
-                  22, 138, 38, 22, h, 0, hi, 0);
-    g_h_gain = CreateWindowA("EDIT", "1.0", WS_CHILD | WS_VISIBLE | WS_BORDER,
-                             62, 136, 55, 24, h, (HMENU)ID_GAIN, hi, 0);
+    /* riga 2: start/stop + regolazioni */
+    CreateWindowA("BUTTON", "", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                  26, 188, 210, 48, h, (HMENU)ID_START, hi, 0);
+    CreateWindowA("BUTTON", "", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                  250, 188, 110, 48, h, (HMENU)ID_STOP, hi, 0);
+
+    CreateWindowA("STATIC", "gain", WS_CHILD | WS_VISIBLE,
+                  388, 204, 32, 18, h, 0, hi, 0);
+    g_h_gain = CreateWindowA("EDIT", "1.0", WS_CHILD | WS_VISIBLE,
+                             424, 199, 58, 26, h, (HMENU)ID_GAIN, hi, 0);
     ini_leggi("GAIN", "1.0", b, sizeof(b));
     SetWindowTextA(g_h_gain, b);
-    CreateWindowA("STATIC", "shift px:", WS_CHILD | WS_VISIBLE,
-                  130, 138, 58, 22, h, 0, hi, 0);
-    g_h_shift = CreateWindowA("EDIT", "0", WS_CHILD | WS_VISIBLE | WS_BORDER,
-                              190, 136, 55, 24, h, (HMENU)ID_SHIFT, hi, 0);
+    CreateWindowA("STATIC", "shift px", WS_CHILD | WS_VISIBLE,
+                  496, 204, 48, 18, h, 0, hi, 0);
+    g_h_shift = CreateWindowA("EDIT", "0", WS_CHILD | WS_VISIBLE,
+                              550, 199, 58, 26, h, (HMENU)ID_SHIFT, hi, 0);
     ini_leggi("SHIFT", "0", b, sizeof(b));
     SetWindowTextA(g_h_shift, b);
-    CreateWindowA("BUTTON", "Apply", WS_CHILD | WS_VISIBLE,
-                  258, 135, 78, 26, h, (HMENU)ID_APPLY, hi, 0);
+    CreateWindowA("BUTTON", "", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                  622, 197, 100, 30, h, (HMENU)ID_APPLY, hi, 0);
 
-    g_h_stato = CreateWindowA("STATIC", "IDLE", WS_CHILD | WS_VISIBLE,
-                              24, 176, 660, 24, h, (HMENU)ID_STATO, hi, 0);
-    g_h_log = CreateWindowA("LISTBOX", "",
-                            WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL |
-                            LBS_NOINTEGRALHEIGHT,
-                            22, 210, 664, 320, h, (HMENU)ID_LOG, hi, 0);
+    /* log */
+    g_h_log = CreateWindowA("EDIT", "",
+                            WS_CHILD | WS_VISIBLE | WS_VSCROLL |
+                            ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+                            26, 324, 728, 312, h, (HMENU)ID_LOG, hi, 0);
+    SendMessageA(g_h_log, EM_SETLIMITTEXT, 250000, 0);
+    SendMessageA(g_h_log, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN,
+                 MAKELPARAM(12, 12));
+    SetWindowTheme(g_h_log, L"DarkMode_Explorer", NULL);
 
     EnumChildWindows(h, set_font_cb, (LPARAM)g_font);
-    SendMessageA(g_h_sub, WM_SETFONT, (WPARAM)g_font, 1);
-    SendMessageA(g_h_stato, WM_SETFONT, (WPARAM)g_font_b, 1);
+    SendMessageA(g_h_log, WM_SETFONT, (WPARAM)g_font_log, 1);
 
     logUI("PSCapture pronto: premo Start e faccio tutto da solo.");
     return 0;
@@ -782,30 +864,223 @@ WndProc(HWND h, UINT m, WPARAM w, LPARAM l)
       return 0;
     }
     return 0;
+  case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC dc = BeginPaint(h, &ps);
+    RECT r, rr;
+    HBRUSH b, ob;
+    HPEN op;
+    HFONT old;
+
+    GetClientRect(h, &r);
+    FillRect(dc, &r, g_br_bg);
+
+    /* barra titolo con logo */
+    rr = r;
+    rr.bottom = 44;
+    b = CreateSolidBrush(CL_TBAR);
+    FillRect(dc, &rr, b);
+    DeleteObject(b);
+    b = CreateSolidBrush(CL_ACC);
+    ob = (HBRUSH)SelectObject(dc, b);
+    op = (HPEN)SelectObject(dc, GetStockObject(NULL_PEN));
+    RoundRect(dc, 16, 9, 42, 35, 10, 10);
+    SelectObject(dc, ob);
+    SelectObject(dc, op);
+    DeleteObject(b);
+    {
+      POINT pt[3];
+
+      pt[0].x = 24; pt[0].y = 15;
+      pt[1].x = 24; pt[1].y = 29;
+      pt[2].x = 34; pt[2].y = 22;
+      b = CreateSolidBrush(RGB(255, 255, 255));
+      ob = (HBRUSH)SelectObject(dc, b);
+      op = (HPEN)SelectObject(dc, GetStockObject(NULL_PEN));
+      Polygon(dc, pt, 3);
+      SelectObject(dc, ob);
+      SelectObject(dc, op);
+      DeleteObject(b);
+    }
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, CL_TXT);
+    old = SelectObject(dc, g_font_b);
+    {
+      RECT t = {52, 12, 300, 34};
+
+      DrawTextA(dc, "PSCapture", -1, &t, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectObject(dc, old);
+    {
+      HPEN pn = CreatePen(PS_SOLID, 2, CL_DIM);
+      int W = r.right;
+
+      op = (HPEN)SelectObject(dc, pn);
+      MoveToEx(dc, W - 72, 22, NULL);
+      LineTo(dc, W - 58, 22);
+      MoveToEx(dc, W - 34, 16, NULL);
+      LineTo(dc, W - 20, 30);
+      MoveToEx(dc, W - 34, 30, NULL);
+      LineTo(dc, W - 20, 16);
+      SelectObject(dc, op);
+      DeleteObject(pn);
+    }
+    /* hero */
+    SetTextColor(dc, CL_TXT);
+    old = SelectObject(dc, g_font_t);
+    {
+      RECT t = {26, 50, 700, 92};
+
+      DrawTextA(dc, "PSCapture", -1, &t, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectObject(dc, old);
+    old = SelectObject(dc, g_font_s);
+    SetTextColor(dc, CL_DIM);
+    {
+      RECT t = {28, 92, 750, 114};
+
+      DrawTextA(dc, "PS5 screen to PC capture card  -  by fstat13  -  v0.1",
+                -1, &t, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectObject(dc, old);
+    b = CreateSolidBrush(CL_LINE);
+    rr.left = 0;
+    rr.top = 126;
+    rr.right = r.right;
+    rr.bottom = 127;
+    FillRect(dc, &rr, b);
+    DeleteObject(b);
+    /* cornici dei campi e del log */
+    b = CreateSolidBrush(CL_GBD);
+    {
+      RECT e = {81, 141, 233, 173};
+
+      FrameRect(dc, &e, b);
+      e.left = 423; e.top = 198; e.right = 483; e.bottom = 226;
+      FrameRect(dc, &e, b);
+      e.left = 549; e.top = 198; e.right = 609; e.bottom = 226;
+      FrameRect(dc, &e, b);
+      e.left = 25; e.top = 323; e.right = 755; e.bottom = 637;
+      FrameRect(dc, &e, b);
+    }
+    DeleteObject(b);
+    /* pill di stato */
+    {
+      COLORREF dot = (g_stato_level == 2) ? CL_GREEN :
+                     (g_stato_level == 1) ? CL_AMBER : CL_DIM2;
+
+      b = CreateSolidBrush(CL_PILL);
+      ob = (HBRUSH)SelectObject(dc, b);
+      op = (HPEN)SelectObject(dc, GetStockObject(NULL_PEN));
+      RoundRect(dc, 26, 258, 754, 302, 44, 44);
+      SelectObject(dc, ob);
+      SelectObject(dc, op);
+      DeleteObject(b);
+      b = CreateSolidBrush(dot);
+      ob = (HBRUSH)SelectObject(dc, b);
+      op = (HPEN)SelectObject(dc, GetStockObject(NULL_PEN));
+      Ellipse(dc, 46, 269, 58, 281);
+      SelectObject(dc, ob);
+      SelectObject(dc, op);
+      DeleteObject(b);
+      SetTextColor(dc, (g_stato_level == 2) ? CL_TXT : CL_DIM);
+      old = SelectObject(dc, g_font_b);
+      {
+        RECT t = {68, 258, 740, 302};
+
+        DrawTextA(dc, g_stato_text, -1, &t,
+                  DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+      }
+      SelectObject(dc, old);
+    }
+    EndPaint(h, &ps);
+    return 0;
+  }
+  case WM_DRAWITEM: {
+    DRAWITEMSTRUCT *d = (DRAWITEMSTRUCT *)l;
+    RECT r = d->rcItem;
+    int start = (d->CtlID == ID_START);
+    int sel = (d->itemState & ODS_SELECTED) != 0;
+    int dis = (d->itemState & ODS_DISABLED) != 0;
+    const char *lbl = "";
+    COLORREF bg, fg, bd;
+    HBRUSH br, ob;
+    HPEN pn, op;
+    HFONT of;
+
+    switch(d->CtlID) {
+    case ID_START: lbl = "START STREAMING"; break;
+    case ID_STOP: lbl = "STOP"; break;
+    case ID_DEPLOY: lbl = "Deploy payload"; break;
+    case ID_INSTALL: lbl = "Install driver"; break;
+    case ID_APPLY: lbl = "Apply"; break;
+    }
+    if(start) {
+      bg = sel ? CL_ACC_D : CL_ACC;
+      fg = RGB(255, 255, 255);
+      bd = bg;
+    } else {
+      bg = sel ? CL_GHOST_D : CL_GHOST;
+      fg = CL_TXT;
+      bd = CL_GBD;
+    }
+    if(dis) {
+      bg = CL_GHOST;
+      fg = CL_DIM2;
+    }
+    br = CreateSolidBrush(bg);
+    pn = CreatePen(PS_SOLID, 1, bd);
+    ob = (HBRUSH)SelectObject(d->hDC, br);
+    op = (HPEN)SelectObject(d->hDC, pn);
+    RoundRect(d->hDC, r.left + 1, r.top + 1, r.right - 1, r.bottom - 1,
+              start ? 14 : 10, start ? 14 : 10);
+    SelectObject(d->hDC, ob);
+    SelectObject(d->hDC, op);
+    DeleteObject(br);
+    DeleteObject(pn);
+    SetBkMode(d->hDC, TRANSPARENT);
+    SetTextColor(d->hDC, fg);
+    of = (HFONT)SelectObject(d->hDC, g_font_b);
+    DrawTextA(d->hDC, lbl, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(d->hDC, of);
+    return TRUE;
+  }
   case WM_CTLCOLORSTATIC: {
     HDC dc = (HDC)w;
     HWND ctl = (HWND)l;
 
+    if(ctl == g_h_log) {   /* l'EDIT readonly arriva qui */
+      SetBkMode(dc, OPAQUE);
+      SetBkColor(dc, CL_EDIT);
+      SetTextColor(dc, CL_EDTX);
+      return (LRESULT)g_br_edit;
+    }
     SetBkMode(dc, TRANSPARENT);
-    if(ctl == g_h_stato) {
-      SetTextColor(dc, g_stato_on ? RGB(14, 150, 80) : RGB(120, 120, 120));
-      return (LRESULT)GetSysColorBrush(COLOR_BTNFACE);
-    }
-    if(ctl == g_h_sub) {
-      SetTextColor(dc, RGB(110, 110, 110));
-      return (LRESULT)GetSysColorBrush(COLOR_BTNFACE);
-    }
-    return (LRESULT)GetSysColorBrush(COLOR_BTNFACE);
+    SetTextColor(dc, CL_DIM);
+    return (LRESULT)g_br_bg;
+  }
+  case WM_CTLCOLOREDIT: {
+    HDC dc = (HDC)w;
+
+    SetBkColor(dc, CL_EDIT);
+    SetTextColor(dc, CL_TXT);
+    return (LRESULT)g_br_edit;
   }
   case WM_APP_LOG: {
     char *s = (char *)l;
 
     if(s) {
-      int i = (int)SendMessageA(g_h_log, LB_ADDSTRING, 0, (LPARAM)s);
-      int cnt = (int)SendMessageA(g_h_log, LB_GETCOUNT, 0, 0);
+      int len = (int)SendMessageA(g_h_log, WM_GETTEXTLENGTH, 0, 0);
 
-      if(cnt > 500) SendMessageA(g_h_log, LB_DELETESTRING, 0, 0);
-      SendMessageA(g_h_log, LB_SETTOPINDEX, i, 0);
+      if(len > 150000) {
+        SendMessageA(g_h_log, EM_SETSEL, 0, 60000);
+        SendMessageA(g_h_log, EM_REPLACESEL, FALSE, (LPARAM)"");
+        len = (int)SendMessageA(g_h_log, WM_GETTEXTLENGTH, 0, 0);
+      }
+      SendMessageA(g_h_log, EM_SETSEL, len, len);
+      SendMessageA(g_h_log, EM_REPLACESEL, FALSE, (LPARAM)s);
+      SendMessageA(g_h_log, EM_REPLACESEL, FALSE, (LPARAM)"\r\n");
+      SendMessageA(g_h_log, EM_SCROLLCARET, 0, 0);
       free(s);
     }
     return 0;
@@ -814,13 +1089,42 @@ WndProc(HWND h, UINT m, WPARAM w, LPARAM l)
     char *s = (char *)l;
 
     if(s) {
-      SetWindowTextA(g_h_stato, s);
-      g_stato_on = (strstr(s, "STREAMING") || strstr(s, "AVVIO")) ? 1 : 0;
-      InvalidateRect(g_h_stato, NULL, TRUE);
+      RECT pr = {26, 258, 754, 302};
+
+      snprintf(g_stato_text, sizeof(g_stato_text), "%s", s);
+      g_stato_level = strstr(s, "STREAMING") ? 2 :
+                      (strstr(s, "ATTESA") || strstr(s, "AVVIO")) ? 1 : 0;
+      InvalidateRect(h, &pr, FALSE);
       free(s);
     }
     return 0;
   }
+  case WM_NCHITTEST: {
+    POINT p = {LOWORD(l), HIWORD(l)};
+    RECT wr;
+    int W;
+
+    GetWindowRect(h, &wr);
+    p.x -= wr.left;
+    p.y -= wr.top;
+    W = wr.right - wr.left;
+    if(p.y >= 0 && p.y < 44) {
+      if(p.x >= W - 80 && p.x < W - 44) return HTMINBUTTON;
+      if(p.x >= W - 44) return HTCLOSE;
+      return HTCAPTION;
+    }
+    return HTCLIENT;
+  }
+  case WM_NCLBUTTONDOWN:
+    if(w == HTMINBUTTON) {
+      ShowWindow(h, SW_MINIMIZE);
+      return 0;
+    }
+    if(w == HTCLOSE) {
+      PostMessageA(h, WM_CLOSE, 0, 0);
+      return 0;
+    }
+    break;
   case WM_CLOSE:
     if(g_streaming) {
       g_streaming = 0;
@@ -859,7 +1163,14 @@ driver_installato(void)
   if(RegOpenKeyA(HKEY_CLASSES_ROOT,
                  "CLSID\\{50533543-414d-4def-9b0e-192080102030}\\InprocServer32",
                  &k) == ERROR_SUCCESS) {
-    ok = 1;
+    char dll[MAX_PATH];
+    DWORD sz = sizeof(dll), tipo = 0;
+
+    if(RegQueryValueExA(k, NULL, NULL, &tipo, (LPBYTE)dll, &sz) == ERROR_SUCCESS &&
+       (tipo == REG_SZ || tipo == REG_EXPAND_SZ) &&
+       GetFileAttributesA(dll) != INVALID_FILE_ATTRIBUTES) {
+      ok = 1;
+    }
     RegCloseKey(k);
   }
   return ok;
@@ -874,7 +1185,13 @@ WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
 
   (void)prev;
   (void)cmd;
-  if(!is_admin()) {
+
+  g_inst = inst;
+  exe_dir(g_dir, sizeof(g_dir));
+  logUI("PSCapture avvio: admin=%d no_elevate=%d dir=%s", is_admin(),
+        getenv("PSCAPTURE_NO_ELEVATE") != NULL, g_dir);
+
+  if(!is_admin() && !getenv("PSCAPTURE_NO_ELEVATE")) {
     SHELLEXECUTEINFOA sei;
     char self[MAX_PATH];
 
@@ -886,10 +1203,10 @@ WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
     sei.lpFile = self;
     sei.lpDirectory = NULL;
     sei.nShow = SW_SHOWNORMAL;
+    logUI("richiedo elevazione (prompt UAC)...");
     if(ShellExecuteExA(&sei)) return 0;   /* rilanciata come admin */
+    logUI("elevazione rifiutata: continuo senza privilegi");
   }
-  g_inst = inst;
-  exe_dir(g_dir, sizeof(g_dir));
 
   WSAStartup(MAKEWORD(2, 2), &(WSADATA){0});
 
@@ -900,23 +1217,33 @@ WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
                                           sizeof(ps5cam_shm_t));
   }
   if(!g_shm) {
+    logUI("ERRORE: shared memory non creabile");
     MessageBoxA(NULL, "Impossibile creare la shared memory del driver.",
                 "PSCapture", MB_ICONERROR);
     return 1;
   }
+  logUI("shared memory OK");
   memset(&wc, 0, sizeof(wc));
   wc.lpfnWndProc = WndProc;
   wc.hInstance = inst;
   wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-  wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+  wc.hbrBackground = CreateSolidBrush(CL_BG);
   wc.hIcon = LoadIconA(inst, MAKEINTRESOURCEA(1));
   wc.lpszClassName = "PSCaptureWnd";
   RegisterClassA(&wc);
 
-  g_hwnd = CreateWindowA("PSCaptureWnd", "PSCapture by fstat13 — PS5 screen to PC",
-                         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-                         CW_USEDEFAULT, CW_USEDEFAULT, 728, 580,
-                         NULL, NULL, inst, NULL);
+  {
+    g_hwnd = CreateWindowExA(WS_EX_APPWINDOW, "PSCaptureWnd",
+                             "PSCapture by fstat13 - PS5 screen to PC",
+                             WS_POPUP,
+                             CW_USEDEFAULT, CW_USEDEFAULT, 780, 660,
+                             NULL, NULL, inst, NULL);
+    if(g_hwnd) {
+      HRGN rg = CreateRoundRectRgn(0, 0, 781, 661, 20, 20);
+
+      if(rg) SetWindowRgn(g_hwnd, rg, TRUE);
+    }
+  }
   ShowWindow(g_hwnd, show);
   UpdateWindow(g_hwnd);
   PostMessageA(g_hwnd, WM_APP_AUTOSTART, 0, 0);
