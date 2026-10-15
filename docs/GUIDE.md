@@ -1,5 +1,7 @@
 # PSCapture — the fool-proof guide
 
+🇮🇹 Versione italiana: [GUIDE.it.md](GUIDE.it.md)
+
 From zero to your PS5 inside Discord. Every step says exactly what you should
 see on screen. If something doesn't match, jump to the troubleshooting table
 at the bottom.

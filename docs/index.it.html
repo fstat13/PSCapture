@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSCapture di fstat13 — la PS5 come scheda di acquisizione sul PC</title>
+<style>
+  :root{
+    --bg:#0d1015; --card:#151a22; --card2:#1b222d; --line:#242c38;
+    --fg:#e8edf4; --dim:#96a0b0; --accent:#0070d1; --accent2:#35a3ff;
+    --rec:#e22236; --ok:#1fbf6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:16px/1.65 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px}
+  header{background:
+     radial-gradient(900px 320px at 20% -40%, rgba(0,112,209,.35), transparent 60%),
+     radial-gradient(700px 300px at 90% -30%, rgba(226,34,54,.22), transparent 60%),
+     var(--bg);
+     border-bottom:1px solid var(--line);padding:56px 0 40px}
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand img{width:84px;height:84px;border-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  h1{font-size:44px;margin:0;letter-spacing:.5px}
+  .tag{color:var(--dim);font-size:18px;margin-top:6px}
+  .badges{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}
+  .badge{border:1px solid var(--line);background:var(--card);
+    padding:5px 12px;border-radius:999px;font-size:13px;color:var(--dim)}
+  .badge b{color:var(--fg)}
+  h2{margin:52px 0 14px;font-size:26px}
+  h3{margin:26px 0 10px;font-size:19px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .card p{margin:0;color:var(--dim);font-size:14.5px}
+  .flow{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin-top:16px}
+  .box{flex:1;min-width:180px;background:var(--card2);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px}
+  .box b{display:block;margin-bottom:6px}
+  .box div{color:var(--dim);font-size:13.5px}
+  .arrow{align-self:center;color:var(--accent2);font-size:22px;padding:0 2px}
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:18px 0 0}
+  ol.steps li{counter-increment:s;position:relative;padding:0 0 18px 54px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;
+    width:34px;height:34px;border-radius:10px;background:var(--accent);
+    color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center}
+  ol.steps b{color:var(--fg)}
+  ol.steps span{color:var(--dim)}
+  ul.plain{color:var(--dim);padding-left:22px}
+  ul.plain b{color:var(--fg)}
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);
+    vertical-align:top}
+  th{color:var(--dim);font-weight:500}
+  td code,th code{white-space:nowrap}
+  code,kbd{background:#0a0d12;border:1px solid var(--line);border-radius:6px;
+    padding:1px 7px;font:13.5px/1.5 Consolas,monospace;color:#cfe3ff}
+  pre{background:#0a0d12;border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;overflow-x:auto;font:13.5px/1.6 Consolas,monospace;
+    color:#cfe3ff}
+  pre .c{color:#5f7186}
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;margin:10px 0}
+  summary{cursor:pointer;font-weight:600}
+  details p{color:var(--dim);margin:10px 0 0}
+  .note{background:linear-gradient(0deg,rgba(0,112,209,.08),rgba(0,112,209,.08)),
+    var(--card);border:1px solid #23405f;border-radius:12px;padding:14px 18px;color:#cfe3ff}
+  .warn{background:linear-gradient(0deg,rgba(226,34,54,.07),rgba(226,34,54,.07)),
+    var(--card);border:1px solid #5f2330;border-radius:12px;padding:14px 18px;color:#f3cdd3}
+  footer{color:var(--dim);border-top:1px solid var(--line);margin-top:70px;
+    padding:26px 0 40px;font-size:13.5px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+    background:var(--rec);margin-right:8px;vertical-align:1px}
+  .ok{color:var(--ok);font-weight:600}
+  .toc{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .toc a{border:1px solid var(--line);background:var(--card);border-radius:999px;
+    padding:4px 12px;font-size:13px}
+  .lang{position:absolute;top:18px;right:22px;font-size:13.5px}
+</style>
+</head>
+<body>
+
+<header style="position:relative">
+  <div class="lang">🇬🇧 <a href="index.html">English</a></div>
+  <div class="wrap">
+    <div class="brand">
+      <img src="pscapture.png" alt="PSCapture">
+      <div>
+        <h1>PSCapture</h1>
+        <div class="tag">Lo schermo della PlayStation&nbsp;5, live sul tuo PC — come una vera scheda di acquisizione.</div>
+      </div>
+    </div>
+    <div class="badges">
+      <span class="badge"><b>PS5</b> jailbroken</span>
+      <span class="badge"><b>Windows</b> 10 / 11</span>
+      <span class="badge"><span class="dot"></span><b>Niente</b> capture card</span>
+      <span class="badge"><b>Niente</b> Remote&nbsp;Play</span>
+      <span class="badge">1080p &middot; ~30 fps</span>
+    </div>
+    <div class="toc">
+      <a href="#start">Avvio rapido</a>
+      <a href="#daily">Uso quotidiano</a>
+      <a href="#trouble">Problemi</a>
+      <a href="#build">Build dai sorgenti</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>Cos'è</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>🎥 Scheda di acquisizione virtuale</h3>
+      <p>PSCapture registra un dispositivo DirectShow chiamato <b>PS5 Capture</b>.
+         Discord, OBS e ffmpeg lo vedono come un'Elgato — scegli la camera e vai
+         live.</p>
+    </div>
+    <div class="card">
+      <h3>⚡ Direttamente dalla GPU</h3>
+      <p>Il payload sulla console legge direttamente il buffer di scan-out del
+         display engine e manda i frame NV12 sulla tua LAN. Nessuna
+         ricodifica, nessun cloud.</p>
+    </div>
+    <div class="card">
+      <h3>🖱️ Un solo eseguibile</h3>
+      <p><b>PSCapture.exe</b> contiene già il payload per la console:
+         installa il driver, manda il payload, avvia lo stream — una finestra,
+         un click.</p>
+    </div>
+  </div>
+
+  <h2>Come funziona</h2>
+  <div class="flow">
+    <div class="box"><b>PS5 &middot; payload</b>
+      <div>legge il ring di scan-out del display engine, costruisce i frame
+           NV12, li serve su una porta TCP e mostra il toast:
+           <i>“PSCapture is streaming on:PORT”</i>.</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>PC &middot; feeder</b>
+      <div>riceve i frame e li pubblica in un ring di memoria condivisa.</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>PC &middot; driver</b>
+      <div>il filtro DirectShow espone il ring come una camera per tutti i
+           programmi.</div></div>
+  </div>
+
+  <h2 id="start">Avvio rapido — passo per passo</h2>
+
+  <div class="note" style="margin-bottom:20px">
+    <b>Cosa serve prima.</b> Una PS5 jailbroken con il setup standard:
+    un payload loader sulla porta TCP <code>9021</code> (tipo
+    <code>elfldr</code>), FTP anonimo sulla <code>2121</code>, e opzionalmente
+    l'autoloader <code>pldmgr</code> così il payload parte a ogni boot.
+    PC e console sulla stessa LAN. Scarica <b>PSCapture.exe</b> dalla pagina
+    Releases — <b>è un unico file</b>: il payload per la console e il driver
+    per Windows sono dentro di lui.
+  </div>
+
+  <ol class="steps">
+    <li><b>Fai il jailbreak della console</b><br>
+      <span>Qualsiasi jailbreak kernel-capable che ti dia il payload loader
+      (:9021), l'FTP anonimo (:2121) e — opzionale — l'autoloader
+      <code>pldmgr</code>.</span></li>
+    <li><b>Doppio click su <code>PSCapture.exe</code></b><br>
+      <span>Windows chiede <i>“Consenti a questa app di apportare modifiche?”</i>
+      → <b>Sì</b>. L'app si eleva da sola; i privilegi servono una volta, per
+      registrare la webcam virtuale per tutti i programmi.</span></li>
+    <li><b>Controlla l'IP</b><br>
+      <span>Se la tua PS5 non è a <code>192.168.0.36</code>, scrivi il suo
+      indirizzo nel campo <b>PS5 IP</b> e premi <b>Apply</b>.</span></li>
+    <li><b>Guarda e non premere niente</b><br>
+      <span>L'app fa tutto da sola, e te lo racconta nel pannello log scuro
+      (tabella qui sotto). Sulla console vedrai anche la notifica di sistema
+      <i>“PSCapture is streaming on:PORT”</i>.</span></li>
+    <li><b>Usalo in qualsiasi programma</b><br>
+      <span>Discord (in chiamata): <i>Impostazioni → Voce e video →
+      Telecamera</i> → <b>PS5 Capture</b> (720p — Discord chiede 720p a tutte
+      le camere, capture card incluse). OBS: aggiungi un <i>Video Capture
+      Device</i> → <b>1920x1080</b> pieno. ffmpeg:
+      <code>-f dshow -i video="PS5 Capture"</code>.</span></li>
+  </ol>
+
+  <h3>Cosa devi vedere nel log dell'app</h3>
+  <table>
+    <tr><th>Riga</th><th>Significato</th></tr>
+    <tr><td><code>driver gia' installato</code></td>
+        <td>camera già registrata — niente da fare</td></tr>
+    <tr><td><code>driver estratto dall'eseguibile (… byte)</code><br>
+            <code>driver registrato - la webcam 'PS5 Capture' e' pronta</code></td>
+        <td>primo avvio: il driver è stato estratto dall'exe e registrato</td></tr>
+    <tr><td><code>payload dall'eseguibile (… byte)</code></td>
+        <td>il payload sta viaggiando verso la PS5</td></tr>
+    <tr><td><code>payload avviato - la PS5 deve mostrare la notifica PSCapture</code></td>
+        <td>il payload sta girando sulla console</td></tr>
+    <tr><td><code>porta stream: 9xxx</code> → <code>collegato a …:9xxx</code></td>
+        <td>stream connesso — la pillola diventa <span class="ok">verde: STREAMING</span></td></tr>
+  </table>
+
+  <div class="warn" style="margin-top:18px">
+    <b>Pillola ferma su “IN ATTESA DELLA PS5 — accesa e col jailbreak avviato?”</b><br>
+    La console è spenta, non ancora jailbroken, o l'IP è sbagliato. L'app
+    riprova ogni 2 secondi: nel momento in cui la console è pronta si connette
+    da sola. Porte da controllare sulla console: <code>9021</code> e
+    <code>2121</code> devono essere aperte.
+  </div>
+
+  <h2 id="daily">Uso quotidiano e regolazioni</h2>
+  <ul class="plain">
+    <li>Apri <b>PSCapture.exe</b> (UAC → Sì). Se il payload è già sulla console
+        (autoloader) lo stream parte da solo; altrimenti premi
+        <b>Deploy payload</b> una volta.</li>
+    <li><b>Stop</b> / chiudere l'app ferma lo stream — la camera si congela
+        sull'ultimo frame e gli altri programmi continuano a vedere il
+        dispositivo.</li>
+    <li><b>gain</b> — forza del colore. <b>Lascia 1.0</b> (grezzo) a meno che i
+        colori non sembrino sbagliati.</li>
+    <li><b>shift px</b> — allineamento orizzontale. <b>Solo numeri PARI</b>
+        (un valore dispari inverte i colori). Si applica in diretta ed è
+        salvato in <code>pscapture.ini</code> accanto all'exe.</li>
+  </ul>
+
+  <h2 id="trouble">Problemi — sintomo → rimedio</h2>
+  <table>
+    <tr><th>Sintomo</th><th>Causa → rimedio</th></tr>
+    <tr><td>La pillola resta su <code>AVVIO…</code> / <code>IN ATTESA DELLA PS5</code></td>
+        <td>Console spenta o non jailbroken, o IP sbagliato → accendila, avvia
+            il jailbreak, controlla il campo IP</td></tr>
+    <tr><td>Il log ripete <code>PS5 non raggiungibile</code></td>
+        <td>Come sopra — l'app riprova da sola</td></tr>
+    <tr><td>La camera <b>PS5 Capture</b> non appare in Discord/OBS</td>
+        <td>Driver mai registrato → premi <b>Install driver</b>; il log ora
+            riporta l'errore vero</td></tr>
+    <tr><td><code>ERRORE: driver non scrivibile in C:\Program Files\PSCapture (serve admin?)</code></td>
+        <td>App non elevata → riavvia PSCapture.exe e accetta il prompt UAC</td></tr>
+    <tr><td><code>ERRORE caricando la dll (err=126)</code></td>
+        <td>L'antivirus ha messo in quarantena la dll estratta → sblocca
+            <code>pscapture.dll</code> nell'antivirus, poi premi di nuovo
+            <b>Install driver</b></td></tr>
+    <tr><td>La camera appare ma l'immagine è nera</td>
+        <td>Stream non partito → controlla la pillola, premi <b>Deploy
+            payload</b> e/o <b>START STREAMING</b></td></tr>
+    <tr><td>I colori sembrano sbagliati</td>
+        <td>Hai toccato <code>gain</code> → rimettilo a 1.0 e Apply</td></tr>
+    <tr><td>Immagine decentrata / barra nera</td>
+        <td>Allineamento → regola <code>shift px</code> con numeri pari</td></tr>
+    <tr><td>Discord mostra 720p</td>
+        <td>Il motore di Discord limita ogni camera a 720p → usa OBS per il
+            1080p</td></tr>
+    <tr><td>OBS vede la camera, Discord no</td>
+        <td>Discord era aperto prima dell'installazione del driver → chiudilo
+            COMPLETAMENTE (anche dalla tray) e riaprilo</td></tr>
+    <tr><td>Tutto il resto</td>
+        <td>Leggi <code>pscapture-app.log</code> (accanto all'exe o in
+            <code>%TEMP%</code>) e il log della console
+            <code>/data/pscapture.log</code> via FTP</td></tr>
+  </table>
+
+  <h2 id="build">Build dai sorgenti</h2>
+
+  <p style="color:var(--dim)">Solo sorgenti — nella repo non ci sono binari.
+  Due metà, due toolchain. Il walk-through completo (installazione toolchain,
+  verifiche, trappole) è in <a href="BUILD.it.md">docs/BUILD.it.md</a>.</p>
+
+  <h3>1 · Payload console → <code>pscapture.elf</code></h3>
+  <pre><span class="c"># servono Docker + l'immagine del PS5 payload SDK (prospero-clang; qui tag ps5sdk:18)</span>
+docker run --rm -v "&lt;repo&gt;/payload:/payload" -w /payload ps5sdk:18 make</pre>
+
+  <h3>2 · Lato PC → <code>pscapture.exe</code> + <code>pscapture.dll</code></h3>
+  <p style="color:var(--dim)">Serve MinGW-w64 (<code>gcc</code> +
+  <code>windres</code>). <b>L'ordine è obbligatorio</b>: il
+  <code>.res</code> incastra driver e payload così come sono su disco.</p>
+  <pre><span class="c"># dalla radice della repo</span>
+cp payload/pscapture.elf pc/        <span class="c"># viene incastrato così com'è</span>
+cd pc
+
+<span class="c"># 1) il driver della capture card (filtro sorgente DirectShow)</span>
+gcc -O2 -shared -static -static-libgcc -o pscapture.dll ps5cam.c \
+    -lole32 -loleaut32 -luser32 -ladvapi32 -lws2_32
+
+<span class="c"># 2) bundle: icona + payload + driver nell'oggetto risorse</span>
+windres pscapture.rc -O coff -o pscapture.res
+
+<span class="c"># 3) l'app a file unico</span>
+gcc -O2 -mwindows -o pscapture.exe pscapture.c pscapture.res \
+    -lws2_32 -lshell32 -ladvapi32 -luxtheme</pre>
+
+  <details>
+    <summary>Perché quest'ordine? (e i due errori classici di build)</summary>
+    <p><b>windres incastra i file come sono su disco:</b> se la DLL o il
+       payload vengono ricompilati dopo il passo 2, l'exe continua a portarsi
+       dentro quelli vecchi. Rebuild = DLL → windres → exe, ogni volta.<br>
+       <b><code>-static -static-libgcc</code> sulla DLL è obbligatorio:</b>
+       senza, Windows può rifiutarsi di caricare il driver con il cryptico
+       “impossibile trovare il modulo specificato” (runtime mingw mancante).</p>
+  </details>
+
+  <h2>Requisiti</h2>
+  <table>
+    <tr><th>Dove</th><th>Cosa</th></tr>
+    <tr><td>PS5</td><td>Jailbroken (payload loader + FTP + autoloader pldmgr)</td></tr>
+    <tr><td>PS5</td><td>Firmware testato: <b>13.60</b> — vedi la FAQ per le altre versioni</td></tr>
+    <tr><td>PC</td><td>Windows 10/11 64-bit, rete cablata consigliata</td></tr>
+    <tr><td>Rete</td><td>Entrambi sulla stessa LAN (il gigabit basta per 1080p30)</td></tr>
+  </table>
+
+  <h2 id="faq">FAQ</h2>
+
+  <details>
+    <summary>Funziona su firmware precedenti al 13.60?</summary>
+    <p>Il lato PC funziona su qualsiasi firmware: app e driver parlano solo
+       TCP/FTP e memoria condivisa. La parte version-specifica è il payload
+       della console — è stato compilato e tarato sul <b>13.60</b>, usando gli
+       ancoraggi del display engine trovati su quel firmware. Su altri
+       firmware può servire un piccolo lavoro di porting (cioè ritrovare gli
+       stessi ancoraggi su quel sistema). Se hai un'altra versione, apri una
+       issue con il tuo firmware e possiamo aggiungere un profilo.</p>
+  </details>
+
+  <details>
+    <summary>Perché la camera in chiamata è 720p e non 1080p?</summary>
+    <p>Quel limite è del motore vocale di Discord, non di PSCapture: chiede
+       1280x720 a ogni camera. Per la qualità piena usa OBS (dove PS5 Capture
+       va a 1920x1080) o la condivisione schermo di Discord, che arriva a
+       1080p60 con Nitro.</p>
+  </details>
+
+  <details>
+    <summary>Servono una capture card o il Remote Play?</summary>
+    <p>No. PSCapture non tocca mai il Remote Play: il payload legge il display
+       engine sulla console stessa e manda i frame grezzi sulla tua LAN.</p>
+  </details>
+
+  <details>
+    <summary>Come si disinstalla?</summary>
+    <p>Chiudi l'app, poi <code>rundll32 "%ProgramFiles%\PSCapture\pscapture.dll",DllUnregisterServer</code>,
+       cancella <code>C:\Program Files\PSCapture</code>, e opzionalmente
+       cancella <code>/data/pldmgr/payloads/pscapture/</code> sulla console
+       così l'autoloader smette di avviare il payload.</p>
+  </details>
+
+  <footer>
+    PSCapture — porta lo schermo della PS5 ovunque nella tua LAN, senza card e senza cloud.
+    <br><b>di fstat13</b> &middot; source-available. Fatto per la community homebrew. <span class="ok">Gioca responsabilmente.</span>
+    <br><br>
+    Documenti: <a href="GUIDE.it.md">guida a prova di scemo (md)</a> &middot;
+    <a href="BUILD.it.md">build dai sorgenti (md)</a> &middot;
+    <a href="INSTALLER.md">cosa fa l'installer dentro</a> &middot;
+    <a href="REVERSE_ENGINEERING.md">reverse engineering</a> &middot;
+    <a href="ENGINEERING_LOG.md">engineering log</a>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,5 +1,7 @@
 # PSCapture — build from source, step by step
 
+🇮🇹 Versione italiana: [BUILD.it.md](BUILD.it.md)
+
 Everything needed to go from these sources to a working `PSCapture.exe` and a
 `pscapture.elf` for the console. Every command is written exactly as it is
 run, in order. Nothing here is optional magic — the order matters and each

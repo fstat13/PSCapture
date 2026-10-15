@@ -15,6 +15,16 @@ No capture card. No Remote Play. No cloud. Just your console and your network.<b
 <b>by fstat13</b>
 </p>
 
+<p align="center">
+📖 <b><a href="docs/GUIDE.md">How to use it — step-by-step guide</a></b>
+&nbsp;·&nbsp;
+🇮🇹 <b><a href="docs/GUIDE.it.md">Guida passo-passo in italiano</a></b>
+&nbsp;·&nbsp;
+🔧 <b><a href="docs/BUILD.md">Build from source</a></b>
+&nbsp;·&nbsp;
+🇮🇹 <b><a href="docs/BUILD.it.md">Build dai sorgenti</a></b>
+</p>
+
 ---
 
 ## ✨ What you get
