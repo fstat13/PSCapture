@@ -31,8 +31,10 @@ the driver is considered installed and this step is skipped.
 ## Step 2 — Installing the driver (first run only)
 
 1. Creates `%ProgramFiles%\PSCapture`.
-2. Copies `pscapture.dll` there — the DirectShow source filter. (The app also
-   copies itself, so the installed folder is self-contained.)
+2. **Extracts `pscapture.dll` from its own resources** (the driver travels
+   embedded inside the executable, resource `RCDATA` n.3) and writes it
+   there. It also copies itself, so the installed folder is self-contained
+   — the distributed installer is literally **one file**.
 3. Registers the filter by running:
 
    ```
@@ -82,7 +84,7 @@ reconnects automatically the next time you press **Start**.
 
 | Where | What |
 |---|---|
-| `%ProgramFiles%\PSCapture\` | `pscapture.exe`, `pscapture.dll` |
+| `%ProgramFiles%\PSCapture\` | `pscapture.exe` (self-contained) + the `pscapture.dll` it extracts |
 | Registry `HKCR\CLSID\{50533543-…-192080102030}` | the capture-card filter registration |
 | Console `/data/pldmgr/payloads/pscapture/pscapture.elf` | payload (autoloader) |
 | Console `/data/pscapture.port` | stream port announced by the payload |

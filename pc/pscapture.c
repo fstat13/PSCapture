@@ -561,28 +561,48 @@ lavoro_installa(LPVOID p)
   CreateDirectoryA(dst, NULL);
   logUI("installazione in %s", dst);
 
-  /* copia exe (payload embedded) e dll driver (pscapture.dll o ps5cam.dll) */
+  /* il driver viaggia DENTRO l'eseguibile (risorsa RCDATA n.3): lo si
+   * estrae e lo si scrive in Program Files; fallback: copia dal disco */
   {
-    const char *dlls[] = { "pscapture.dll", "ps5cam.dll", NULL };
-    int i;
+    HRSRC r = FindResourceA(NULL, MAKEINTRESOURCEA(3), RT_RCDATA);
 
-    for(i = 0; dlls[i]; i++) {
-      snprintf(src, sizeof(src), "%s\\%s", g_dir, dlls[i]);
-      if(GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES) {
-        snprintf(cmd, sizeof(cmd), "%s\\%s", dst, "pscapture.dll");
-        CopyFileA(src, cmd, FALSE);
-        logUI("driver copiato: %s", dlls[i]);
-        break;
+    snprintf(cmd, sizeof(cmd), "%s\\pscapture.dll", dst);
+    if(r) {
+      HGLOBAL g = LoadResource(NULL, r);
+      DWORD n = SizeofResource(NULL, r);
+      void *sd = g ? LockResource(g) : NULL;
+
+      if(sd && n) {
+        HANDLE h = CreateFileA(cmd, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                               FILE_ATTRIBUTE_NORMAL, NULL);
+        DWORD wr = 0;
+
+        if(h != INVALID_HANDLE_VALUE) {
+          WriteFile(h, sd, n, &wr, NULL);
+          CloseHandle(h);
+        }
+        logUI("driver estratto dall'eseguibile (%u byte)", (unsigned)n);
+      }
+    } else {
+      const char *dlls[] = { "pscapture.dll", "ps5cam.dll", NULL };
+      int i;
+
+      for(i = 0; dlls[i]; i++) {
+        snprintf(src, sizeof(src), "%s\\%s", g_dir, dlls[i]);
+        if(GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES) {
+          CopyFileA(src, cmd, FALSE);
+          logUI("driver copiato dal disco: %s", dlls[i]);
+          break;
+        }
       }
     }
-    if(!dlls[i]) logUI("ATTENZIONE: nessuna dll driver accanto all'exe");
     {
       char self[MAX_PATH];
 
       GetModuleFileNameA(NULL, self, sizeof(self));
       snprintf(cmd, sizeof(cmd), "%s\\pscapture.exe", dst);
       CopyFileA(self, cmd, FALSE);
-      logUI("eseguibile installato (payload incluso)");
+      logUI("eseguibile installato (payload e driver inclusi)");
     }
   }
 

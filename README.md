@@ -63,17 +63,16 @@ docs/       HTML guide (dark theme, ready for GitHub Pages)
 docker run --rm -v "$PWD/payload:/payload" -w /payload <ps5-payload-sdk-image> make
 ```
 
-**PC app** (mingw-w64, no dependencies):
+**Driver + single-file app** (mingw-w64, no dependencies — build order matters,
+the `.res` embeds the driver and the payload):
 
 ```bash
-windres pscapture.rc -O coff -o pscapture.res      # icon + embedded payload
-gcc -O2 -mwindows -o pscapture.exe pscapture.c pscapture.res -lws2_32 -lshell32 -ladvapi32
-```
-
-**Driver** (mingw-w64):
-
-```bash
-gcc -O2 -shared -o pscapture.dll ps5cam.c -lole32 -loleaut32 -luser32 -ladvapi32 -lws2_32
+# 1) the capture-card driver
+gcc -O2 -shared -o pc/pscapture.dll pc/ps5cam.c -lole32 -loleaut32 -luser32 -ladvapi32 -lws2_32
+# 2) resources = icon + payload + driver
+windres pc/pscapture.rc -O coff -o pc/pscapture.res
+# 3) the app (one self-contained executable)
+gcc -O2 -mwindows -o pc/pscapture.exe pc/pscapture.c pc/pscapture.res -lws2_32 -lshell32 -ladvapi32
 ```
 
 ## ❓ FAQ
