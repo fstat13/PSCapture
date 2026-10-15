@@ -25,6 +25,13 @@ No capture card. No Remote Play. No cloud. Just your console and your network.<b
 🇮🇹 <b><a href="docs/BUILD.it.md">Build dai sorgenti</a></b>
 </p>
 
+<p align="center">
+🌐 Illustrated guide:
+<b><a href="https://fstat13.github.io/PSCapture/">English</a></b>
+&nbsp;·&nbsp;
+<b><a href="https://fstat13.github.io/PSCapture/index.it.html">Italiano</a></b>
+</p>
+
 ---
 
 ## ✨ What you get
